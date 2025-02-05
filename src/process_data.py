@@ -13,25 +13,24 @@ def load_data():
 
 def preprocess_data(dataframe):
     df=dataframe.copy()
+
+    # Fill Missing Values
     df['LotFrontage'].fillna(np.round(df['LotFrontage'].mean()),inplace=True)
     df['MasVnrType'].fillna('None', inplace=True)
     df['MasVnrArea'].fillna(np.round(df['MasVnrArea'].mean()),inplace=True)
-    df['BsmtQual'].fillna('NA', inplace=True)
-    df['BsmtCond'].fillna('NA', inplace=True)
-    df['BsmtExposure'].fillna('NA', inplace=True)
-    df['BsmtFinType1'].fillna('NA',inplace=True)
     df['Electrical'].fillna(df['Electrical'].mode()[0],inplace=True)
-    df['FireplaceQu'].fillna('NA',inplace=True)
-    df['GarageType'].fillna('NA',inplace=True)
-    df['GarageFinish'].fillna('NA',inplace=True)
-    df['GarageCond'].fillna('NA',inplace=True)
-    df['PoolQC'].fillna('NA',inplace=True)
-    df['Fence'].fillna('NA',inplace=True)
-    df['GarageQual'].fillna('NA',inplace=True)
+    for feature in ['BsmtQual', 'BsmtCond', 'BsmtExposure', 'BsmtFinType1',
+                    'FireplaceQu', 'GarageType', 'GarageFinish', 'GarageCond',
+                    'GarageQual', 'PoolQC', 'Fence']:
+        df[feature].fillna('NA', inplace=True)
+
+    # Remove Outliers    
     df=df[df['LotFrontage'] <= 200]
     df=df[df['LotArea'] <=180000]
     df=df[df['TotalBsmtSF'] <=3500]
     df=df[df['GrLivArea'] <=5000] 
+
+    #Dropping unnecessary columns and feature engineering
     df.drop(['MiscFeature','Alley','MSSubClass','OverallQual','BedroomAbvGr','OverallCond','LowQualFinSF','BedroomAbvGr','KitchenAbvGr','3SsnPorch'],axis=1,inplace=True)
     df['TotBath']=df['BsmtFullBath']+df['BsmtHalfBath']+df['FullBath']+df['HalfBath']
     df.drop(['BsmtFullBath','FullBath','HalfBath','BsmtHalfBath'],axis=1,inplace=True)
@@ -41,15 +40,16 @@ def preprocess_data(dataframe):
     df.drop(['PoolArea','MoSold','YrSold','MiscVal','BsmtUnfSF','GarageYrBlt','YearRemodAdd','TotRmsAbvGrd','GarageArea'],axis=1,inplace=True)
     df.drop(['LotShape','ExterQual','Condition2','Exterior1st','BsmtFinType2','Utilities','LotConfig','LandSlope','Condition1','RoofStyle','Heating'],axis=1,inplace=True)
     
-    p=df.columns[df.isnull().sum()>0]
-    for feature in p:
+    #Handling in-case missing values
+    for feature in df.columns[df.isnull().sum()>0]:
         df[feature].fillna(df[feature].mode()[0], inplace=True)
     
     return df
 
-def category_onehot(catcols,concat_df):
+def category_onehot(catcols, concat_df):
     df_final=concat_df.copy()
     i=0
+
     for f in catcols:
         temp=pd.get_dummies(concat_df[f],drop_first=True)
         concat_df.drop([f],axis=1,inplace=True)
@@ -58,16 +58,17 @@ def category_onehot(catcols,concat_df):
         else:
             df_final=pd.concat([df_final,temp], axis=1)
         i+=1
+
     df_final=pd.concat([concat_df,df_final], axis=1)
     df_final=df_final.loc[:,~df_final.columns.duplicated()]
     df_final= df_final.replace({False: 0, True: 1})
+
     return df_final
 
 def train_model(concat_df):
     df_train=concat_df.iloc[:1457,:]
     df_test=concat_df.iloc[1457:,:]
     df_test.drop(['SalePrice'], axis=1, inplace=True)
-    # print(df_train.shape, df_test.shape)
     x_train=df_train.drop(['SalePrice'], axis=1)
     y_train=df_train['SalePrice']
 
@@ -84,6 +85,7 @@ def train_model(concat_df):
              num_parallel_tree=None, random_state=None)
 
     regressor.fit(x_train,y_train)
+
     filename='data/xgboost_model.pkl'
     pickle.dump(regressor,open(filename,'wb'))
 
@@ -102,24 +104,28 @@ def divide_num_cat_cols(df):
                 numcols_discrete.append(feature)
             else:
                 numcols_cont.append(feature)
+
     return numcols,catcols,numcols_cont,numcols_discrete
 
 def normalize(df):
     scaler = MinMaxScaler()
     df_arr=scaler.fit_transform(df)
+
     with open("data/scaler.pkl", "wb") as f:
         pickle.dump(scaler, f)
+
     return df_arr
 
 def process_onehot_norm(df,df_test):
     _,catcols,_,_=divide_num_cat_cols(df)
     concat_df = pd.concat([df, df_test], axis=0, ignore_index=True)
-    # print(concat_df)
     concat_df=category_onehot(catcols,concat_df)
+    
     sp=pd.DataFrame(concat_df['SalePrice'])
     fitting_df=concat_df.drop(['SalePrice'],axis=1)
     concat_arr=normalize(fitting_df)
     concat_df_noSP=pd.DataFrame(concat_arr)
-    concat_df=pd.concat((concat_df_noSP,sp),axis=1)
-    return concat_df,concat_arr
 
+    concat_df=pd.concat((concat_df_noSP,sp),axis=1)
+
+    return concat_df,concat_arr
