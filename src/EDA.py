@@ -2,38 +2,51 @@ import streamlit as st
 from process_data import divide_num_cat_cols
 import matplotlib.pyplot as plt
 def show(df):
-    c1,c2,c3=st.columns([1,5,1])
+
+    # Layout for better visualization
+    c1,c2,c3=st.columns([1,10,1])
+
+    # Exctract numerical and categorical columns
     numcols,catcols,cont_cols,discrete_cols=divide_num_cat_cols(df)
+    
     st.write('\n')
-    st.subheader('Relationship with Discrete Features')
+    # Relationship with Discrete Features
+    
+    # Plot discrete-features vs SalePrice
     for feature in discrete_cols:
-        fig, ax = plt.subplots(figsize=(8, 5))  # Create a figure
+        fig, ax = plt.subplots(figsize=(8, 5))
         df.groupby(feature)['SalePrice'].median().plot()
         ax.set_xlabel(feature)
         ax.set_ylabel('Sales Price')
         ax.set_title(f'{feature} vs Sale Price')
         
-        st.pyplot(fig)  # Display plot in Streamlit
-    st.subheader('Relationship with Continuous Features')
+        with c2:
+            st.pyplot(fig)
+
+    # Relationship with Continuous Features
+
+    # Plot histograms for continuous features
     for feature in cont_cols:
         fig, ax = plt.subplots(figsize=(8, 5))
-        # Plot histogram
         ax.hist(df[feature], bins=30, color='skyblue', edgecolor='black', alpha=0.7)
         ax.set_xlabel(feature, fontsize=12)
         ax.set_ylabel('Frequency', fontsize=12)
         ax.set_title(f'Histogram of {feature}', fontsize=14)
         plt.grid(True)
-        st.pyplot(fig)
-    st.subheader('Relationship with Categorical Features')
+        
+        with c2:
+            st.pyplot(fig)
+
+    # Relationship with Categorical Features
+    
+    # Plot categorical features vs SalePrice 
     for feature in catcols:
-        # Create a figure for Streamlit
         fig, ax = plt.subplots(figsize=(8, 5))
-
-        # Create bar plot of median SalePrice for each category
-        df.groupby(feature)['SalePrice'].median().plot(kind='bar', ax=ax, color='skyblue', edgecolor='black')
-        # Customize plot
+        df.groupby(feature)['SalePrice'].median().plot(
+            kind='bar', ax=ax, color='skyblue', edgecolor='black'
+        )
         ax.set_title(f'{feature} vs Median SalePrice', fontsize=14)
-        plt.xticks()  # Rotate x-axis labels for better readability
+        plt.xticks()
 
-        # Display plot in Streamlit
-        st.pyplot(fig)
+        with c2:
+            st.pyplot(fig)
