@@ -5,10 +5,15 @@ import pickle
 from process_data import divide_num_cat_cols,category_onehot
 
 # Loading pre-trained scaler and model
-with open("data/scaler.pkl", "rb") as f:
-    scaler = pickle.load(f)
-with open("data/xgboost_model.pkl", "rb") as f:
-    model = pickle.load(f)
+@st.cache_resource
+def load_scaler():
+    with open("data/scaler.pkl", "rb") as f:
+        return pickle.load(f)
+@st.cache_resource
+def load_model():
+    with open("data/xgboost_model.pkl", "rb") as f:
+        return pickle.load(f)
+
 
 def collect_info(df):
     # Get different types of columns
@@ -70,9 +75,11 @@ def collect_info(df):
     inputs=pd.concat([inputs_num,input_df_cat], axis=1)
     
     # Scale input features
+    scaler=load_scaler()
     inputs_scaled=scaler.transform(inputs)
     
     # Predict using trained model
+    model=load_model()
     output=model.predict(inputs_scaled)
     
     return output
