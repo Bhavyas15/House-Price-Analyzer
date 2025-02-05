@@ -25,8 +25,12 @@ def collect_info(df):
     i=0
 
     for feature in catcols:
-        sel_input=columns[i%3].selectbox(f'Select {feature}',df[feature].unique())
-        cat_inp.append(sel_input)
+        if len(df[feature].unique()) <5 :
+            sel_input=columns[2].radio(f'Select {feature}',df[feature].unique())
+            cat_inp.append(sel_input)
+        else:
+            sel_input=columns[0].selectbox(f'Select {feature}',df[feature].unique())
+            cat_inp.append(sel_input)
         i+=1
 
     cat_onehot_df=category_onehot(catcols,df)
