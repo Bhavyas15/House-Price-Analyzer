@@ -4,22 +4,27 @@ import pandas as pd
 import pickle
 from process_data import divide_num_cat_cols,category_onehot
 
+# Loading pre-trained scaler and model
 with open("data/scaler.pkl", "rb") as f:
     scaler = pickle.load(f)
 with open("data/xgboost_model.pkl", "rb") as f:
     model = pickle.load(f)
 
 def collect_info(df):
+    # Get different types of columns
     numcols,catcols,numcols_cont,numcols_discrete=divide_num_cat_cols(df)
-    dict={}
+    input_data={}
+
+    # Collect information of numerical columns
     for feature in numcols_discrete:
         val=st.number_input(f'Select {feature}', df[feature].min(),df[feature].max(),step=1,value=int(df[feature].mode()[0]))
-        dict[feature]=val
+        input_data[feature]=val
     for feature in numcols_cont:
         val=st.slider(f'{feature}',np.round(int(df[feature].min())),np.round(int(df[feature].max())),value=np.round(int(df[feature].mode()[0])))
-        dict[feature]=val
+        input_data[feature]=val
 
-    col1,col2,col3=st.columns([1,1,1])
+    # Layout for categorical features
+    col1,col2,col3=st.columns([2,1,2])
     columns=[col1,col2,col3]
     cat_inp=[]
     i=0
@@ -33,18 +38,41 @@ def collect_info(df):
             cat_inp.append(sel_input)
         i+=1
 
+    # One hot encoding of categorical features
     cat_onehot_df=category_onehot(catcols,df)
     cat_onehot_input_df=cat_onehot_df.drop(['SalePrice'],axis=1)
-    b=pd.DataFrame(columns=cat_onehot_input_df.columns[11:])
-    c=pd.DataFrame(columns=cat_onehot_input_df.columns[:11])
-    new_row = {col: 1 if col in cat_inp else 0 for col in b.columns}
-    b = pd.concat([b, pd.DataFrame([new_row])], ignore_index=True)
     
-    inputs_num=pd.DataFrame([[dict['LotFrontage'],dict['LotArea'],dict['YearBuilt'],dict['MasVnrArea'],
-            dict['TotalBsmtSF'],dict['GrLivArea'],dict['Fireplaces'],dict['GarageCars'],dict['WoodDeckSF'],dict['TotBath'],dict['TotalPorchSF']]], 
-            columns=cat_onehot_input_df.columns[:11])
-    inputs=pd.concat([inputs_num,b], axis=1)
+    # Create empty DataFrame for categorical inputs
+    input_df_cat=pd.DataFrame(columns=cat_onehot_input_df.columns[11:])
+
+    # Encode categorical features as one-hot
+    new_row = {col: 1 if col in cat_inp else 0 for col in input_df_cat.columns}
+    input_df_cat = pd.concat([input_df_cat, pd.DataFrame([new_row])], ignore_index=True)
+
+    # Create numerical input Dataframe
+    inputs_num=pd.DataFrame(
+        [[
+            input_data['LotFrontage'],
+            input_data['LotArea'],
+            input_data['YearBuilt'],
+            input_data['MasVnrArea'],
+            input_data['TotalBsmtSF'],
+            input_data['GrLivArea'],
+            input_data['Fireplaces'],
+            input_data['GarageCars'],
+            input_data['WoodDeckSF'],
+            input_data['TotBath'],
+            input_data['TotalPorchSF']
+        ]], 
+        columns=cat_onehot_input_df.columns[:11])
+    
+    # Combine numerical and categorical features
+    inputs=pd.concat([inputs_num,input_df_cat], axis=1)
+    
+    # Scale input features
     inputs_scaled=scaler.transform(inputs)
+    
+    # Predict using trained model
     output=model.predict(inputs_scaled)
     
     return output
