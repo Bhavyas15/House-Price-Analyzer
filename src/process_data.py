@@ -82,7 +82,7 @@ def train_model(concat_df):
              max_delta_step=None, max_depth=2, max_leaves=None,
              min_child_weight=1, monotone_constraints=None,
              multi_strategy=None, n_estimators=900, n_jobs=None,
-             num_parallel_tree=None, random_state=None)
+             num_parallel_tree=None, random_state=42)
 
     regressor.fit(x_train,y_train)
 
