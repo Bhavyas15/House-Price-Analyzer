@@ -14,21 +14,29 @@ def load_model():
     with open("data/xgboost_model.pkl", "rb") as f:
         return pickle.load(f)
 
-
-def collect_info(df):
-    # Get different types of columns
-    numcols,catcols,numcols_cont,numcols_discrete=divide_num_cat_cols(df)
+def collect_num_info(df,numcols_cont,numcols_discrete):
     input_data={}
 
     # Collect information of numerical columns
     for feature in numcols_discrete:
-        val=st.number_input(f'Select {feature}', df[feature].min(),df[feature].max(),step=1,value=int(df[feature].mode()[0]))
+        val=st.number_input(f'Select {feature}', 
+                                df[feature].min(),
+                                df[feature].max(),
+                                step=1,
+                                value=int(df[feature].mode()[0])
+                            )
         input_data[feature]=val
     for feature in numcols_cont:
-        val=st.slider(f'{feature}',np.round(int(df[feature].min())),np.round(int(df[feature].max())),value=np.round(int(df[feature].mode()[0])))
+        val=st.slider(f'{feature}',
+                            np.round(int(df[feature].min())),  
+                            np.round(int(df[feature].max())),
+                            value=np.round(int(df[feature].mode()[0]))
+                        )
         input_data[feature]=val
 
-    # Layout for categorical features
+    return input_data
+
+def collect_cat_info(df, catcols):
     col1,col2,col3=st.columns([2,1,2])
     columns=[col1,col2,col3]
     cat_inp=[]
@@ -43,6 +51,9 @@ def collect_info(df):
             cat_inp.append(sel_input)
         i+=1
 
+    return cat_inp
+
+def process_info(df, catcols, input_data_num,input_data_cat):
     # One hot encoding of categorical features
     cat_onehot_df=category_onehot(catcols,df)
     cat_onehot_input_df=cat_onehot_df.drop(['SalePrice'],axis=1)
@@ -51,29 +62,33 @@ def collect_info(df):
     input_df_cat=pd.DataFrame(columns=cat_onehot_input_df.columns[11:])
 
     # Encode categorical features as one-hot
-    new_row = {col: 1 if col in cat_inp else 0 for col in input_df_cat.columns}
+    new_row = {col: 1 if col in input_data_cat else 0 for col in input_df_cat.columns}
     input_df_cat = pd.concat([input_df_cat, pd.DataFrame([new_row])], ignore_index=True)
 
     # Create numerical input Dataframe
-    inputs_num=pd.DataFrame(
-        [[
-            input_data['LotFrontage'],
-            input_data['LotArea'],
-            input_data['YearBuilt'],
-            input_data['MasVnrArea'],
-            input_data['TotalBsmtSF'],
-            input_data['GrLivArea'],
-            input_data['Fireplaces'],
-            input_data['GarageCars'],
-            input_data['WoodDeckSF'],
-            input_data['TotBath'],
-            input_data['TotalPorchSF']
-        ]], 
-        columns=cat_onehot_input_df.columns[:11])
+    num_feature_names = cat_onehot_input_df.columns[:11]  # Adjust dynamically
+    inputs_num = pd.DataFrame([[input_data_num[feat] for feat in num_feature_names]], columns=num_feature_names)
     
     # Combine numerical and categorical features
     inputs=pd.concat([inputs_num,input_df_cat], axis=1)
     
+    return inputs
+
+def collect_info(df):
+    # Get different types of columns
+    numcols,catcols,numcols_cont,numcols_discrete=divide_num_cat_cols(df)
+
+    # Input numerical features
+    input_data_num=collect_num_info(df,numcols_cont,numcols_discrete)
+
+    # Input categorical features
+    input_data_cat=collect_cat_info(df,catcols)
+    
+    inputs=process_info(df, catcols, input_data_num,input_data_cat)
+
+    return inputs
+
+def predict(inputs):
     # Scale input features
     scaler=load_scaler()
     inputs_scaled=scaler.transform(inputs)
