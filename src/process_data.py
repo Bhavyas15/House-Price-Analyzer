@@ -4,8 +4,15 @@ import xgboost
 import pickle
 from sklearn.preprocessing import MinMaxScaler
 import streamlit as st
+import os
 
 # Load and process main datasets
+@st.cache_data
+def load_data():
+    df=pd.read_csv('data/train.csv')
+    df_test=pd.read_csv('data/test.csv')
+    return df,df_test
+
 @st.cache_data
 def get_processed_data():
     df, df_test = load_data()
@@ -14,17 +21,10 @@ def get_processed_data():
     df_test = preprocess_data(df_test)
 
     # Save processed data (for use in UI.py)
-    df.to_csv("data/processed_data.csv", index=False)
-    df_test.to_csv("data/processed_test_data.csv", index=False)
+    # df.to_csv("data/processed_data.csv", index=False)
+    # df_test.to_csv("data/processed_test_data.csv", index=False)
 
     return df,df_test
-
-@st.cache_data
-def load_data():
-    df=pd.read_csv('data/train.csv')
-    df_test=pd.read_csv('data/test.csv')
-    return df,df_test
-
 
 def preprocess_data(df):
     # Fill Missing Values
@@ -78,21 +78,29 @@ def category_onehot(catcols, concat_df):
 
     return df_final
 
-def train_xgb(x_train, y_train):
-    regressor=xgboost.XGBRegressor(
-        base_score=0.25, 
-        booster='gbtree', 
-        learning_rate=0.1, 
-        max_depth=2, 
-        n_estimators=900, 
-        min_child_weight=1, 
-        random_state=42
-    )
+@st.cache_resource
+def load_or_train_xgb(x_train, y_train):
 
-    regressor.fit(x_train,y_train)
-    
     filename='data/xgboost_model.pkl'
-    pickle.dump(regressor,open(filename,'wb'))
+    
+    if os.path.exists(filename):
+        with open(filename, "rb") as f:
+            regressor = pickle.load(f)
+        print("Loaded cached XGBoost model.")
+    else:
+        regressor=xgboost.XGBRegressor(
+            base_score=0.25, 
+            booster='gbtree', 
+            learning_rate=0.1, 
+            max_depth=2, 
+            n_estimators=900, 
+            min_child_weight=1, 
+            random_state=42
+        )
+
+        regressor.fit(x_train,y_train)
+        
+        pickle.dump(regressor,open(filename,'wb'))
 
 def train_model(concat_df):
     df_train=concat_df.iloc[:1457,:]
@@ -101,7 +109,7 @@ def train_model(concat_df):
     x_train=df_train.drop(['SalePrice'], axis=1)
     y_train=df_train['SalePrice']
 
-    train_xgb(x_train,y_train)
+    load_or_train_xgb(x_train,y_train)
     
 
 def divide_num_cat_cols(df):
