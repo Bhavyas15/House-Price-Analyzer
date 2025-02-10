@@ -26,13 +26,15 @@ def collect_num_info(df,numcols_cont,numcols_discrete):
                                 value=int(df[feature].mode()[0])
                             )
         input_data[feature]=val
+        
     for feature in numcols_cont:
-        val=st.slider(f'{feature}',
-                            np.round(int(df[feature].min())),  
-                            np.round(int(df[feature].max())),
-                            value=np.round(int(df[feature].mode()[0]))
-                        )
-        input_data[feature]=val
+        if feature !='SalePrice':
+            val=st.slider(f'{feature}',
+                                np.round(int(df[feature].min())),  
+                                np.round(int(df[feature].max())),
+                                value=np.round(int(df[feature].mode()[0]))
+                            )
+            input_data[feature]=val
 
     return input_data
 
