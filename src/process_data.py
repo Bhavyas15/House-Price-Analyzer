@@ -5,15 +5,28 @@ import pickle
 from sklearn.preprocessing import MinMaxScaler
 import streamlit as st
 
+# Load and process main datasets
+@st.cache_data
+def get_processed_data():
+    df, df_test = load_data()
+    # Filling missing values, remove outliers, remove unnecessary columns
+    df = preprocess_data(df)
+    df_test = preprocess_data(df_test)
+
+    # Save processed data (for use in UI.py)
+    df.to_csv("data/processed_data.csv", index=False)
+    df_test.to_csv("data/processed_test_data.csv", index=False)
+
+    return df,df_test
+
 @st.cache_data
 def load_data():
     df=pd.read_csv('data/train.csv')
     df_test=pd.read_csv('data/test.csv')
     return df,df_test
 
-def preprocess_data(dataframe):
-    df=dataframe.copy()
 
+def preprocess_data(df):
     # Fill Missing Values
     df['LotFrontage'].fillna(np.round(df['LotFrontage'].mean()),inplace=True)
     df['MasVnrType'].fillna('None', inplace=True)
@@ -65,6 +78,22 @@ def category_onehot(catcols, concat_df):
 
     return df_final
 
+def train_xgb(x_train, y_train):
+    regressor=xgboost.XGBRegressor(
+        base_score=0.25, 
+        booster='gbtree', 
+        learning_rate=0.1, 
+        max_depth=2, 
+        n_estimators=900, 
+        min_child_weight=1, 
+        random_state=42
+    )
+
+    regressor.fit(x_train,y_train)
+    
+    filename='data/xgboost_model.pkl'
+    pickle.dump(regressor,open(filename,'wb'))
+
 def train_model(concat_df):
     df_train=concat_df.iloc[:1457,:]
     df_test=concat_df.iloc[1457:,:]
@@ -72,22 +101,8 @@ def train_model(concat_df):
     x_train=df_train.drop(['SalePrice'], axis=1)
     y_train=df_train['SalePrice']
 
-    regressor=xgboost.XGBRegressor(base_score=0.25, booster='gbtree', callbacks=None,
-             colsample_bylevel=None, colsample_bynode=None,
-             colsample_bytree=None, device=None, early_stopping_rounds=None,
-             enable_categorical=False, eval_metric=None, feature_types=None,
-             gamma=None, grow_policy=None, importance_type=None,
-             interaction_constraints=None, learning_rate=0.1, max_bin=None,
-             max_cat_threshold=None, max_cat_to_onehot=None,
-             max_delta_step=None, max_depth=2, max_leaves=None,
-             min_child_weight=1, monotone_constraints=None,
-             multi_strategy=None, n_estimators=900, n_jobs=None,
-             num_parallel_tree=None, random_state=42)
-
-    regressor.fit(x_train,y_train)
-
-    filename='data/xgboost_model.pkl'
-    pickle.dump(regressor,open(filename,'wb'))
+    train_xgb(x_train,y_train)
+    
 
 def divide_num_cat_cols(df):
     numcols=[]
@@ -128,4 +143,5 @@ def process_onehot_norm(df,df_test):
 
     concat_df=pd.concat((concat_df_noSP,sp),axis=1)
 
-    return concat_df,concat_arr
+    return concat_df
+
